@@ -1,3 +1,4 @@
+#include <CoreVideo/CoreVideo.h>
 #import <objc/runtime.h>
 
 #import <WebRTC/RTCCameraVideoCapturer.h>
@@ -139,6 +140,9 @@
     ScreenCapturer *screenCapturer = [[ScreenCapturer alloc] initWithDelegate:videoSource];
     ScreenCaptureController *screenCaptureController =
         [[ScreenCaptureController alloc] initWithCapturer:screenCapturer];
+        // We want to create a new constructor, `initWithBufferStream`, that has the correct interface and can be written to
+        // in js-land with any native CVPixelBufferRef. Or, better yet, a js buffer. whatever is easier to get from skia.
+        // Then we can expose an RCT method that takes a buffer and writes it to the stream!
 
     TrackCapturerEventsEmitter *emitter = [[TrackCapturerEventsEmitter alloc] initWith:trackUUID webRTCModule:self];
     screenCaptureController.eventsDelegate = emitter;
@@ -147,6 +151,138 @@
 
     return videoTrack;
 }
+
+- (RTCVideoTrack *)createExternalStreamVideoTrack  {
+#if TARGET_OS_OSX || TARGET_OS_TV
+    return nil;
+#endif
+    // RTCVideoSource has a onFrame function. This is the ideal place to hook into
+    // see: https://github.com/node-webrtc/node-webrtc/blob/develop/docs/nonstandard-apis.md#rtcvideosource
+    // https://github.com/pristineio/webrtc-mirror/blob/master/webrtc/sdk/objc/Framework/Classes/PeerConnection/RTCVideoSource.mm#L53
+    RTCVideoSource *videoSource = [self.peerConnectionFactory videoSource]; // TODO: Add constraints
+    NSString *trackUUID = [[NSUUID UUID] UUIDString];
+    RTCVideoTrack *videoTrack = [self.peerConnectionFactory videoTrackWithSource:videoSource trackId:trackUUID];
+    
+    ScreenCapturer *screenCapturer = [[ScreenCapturer alloc] initWithDelegate:videoSource]; // constraints go here
+    ScreenCaptureController *screenCaptureController =
+        [[ScreenCaptureController alloc] initWithCapturer:screenCapturer];
+        // We want to create a new constructor, `initWithBufferStream`, that has the correct interface and can be written to
+        // in js-land with any native CVPixelBufferRef. Or, better yet, a js buffer. whatever is easier to get from skia.
+        // Then we can expose an RCT method that takes a buffer and writes it to the stream!
+
+    TrackCapturerEventsEmitter *emitter = [[TrackCapturerEventsEmitter alloc] initWith:trackUUID webRTCModule:self];
+    screenCaptureController.eventsDelegate = emitter;
+    videoTrack.captureController = screenCaptureController;
+    [screenCaptureController startCapture];
+
+    return videoTrack;
+}
+
+RCT_EXPORT_METHOD(getInputMedia 
+                  : (NSDictionary *)constraints resolver
+                  : (RCTResponseSenderBlock)resolve rejector
+                  : (RCTResponseSenderBlock)reject) {
+#if TARGET_OS_TV
+    reject(@"unsupported_platform", @"tvOS is not supported", nil);
+    return;
+#else
+    RTCAudioTrack *audioTrack = nil;
+    RTCVideoTrack *videoTrack = nil; 
+
+    if (constraints[@"audio"]) {
+        audioTrack = [self createAudioTrack:constraints];
+    }
+
+    if (constrains[@"video"]) {
+        videoTrack = [self createExternalStreamVideoTrack];
+        if (videoTrack == nil) {
+            reject(@"DOMException", @"AbortError", "failed to create video track");
+            return;
+        }
+    }
+
+    if (audioTrack == nil && videoTrack == nil) {
+        // Fail with DOMException with name AbortError as per:
+        // https://www.w3.org/TR/mediacapture-streams/#dom-mediadevices-getusermedia
+        // errorCallback(@[ @"DOMException", @"AbortError" ]);
+        reject(@"DOMException", @"AbortError", "failed to create video track");
+        return;
+    }
+
+    NSString *mediaStreamId = [[NSUUID UUID] UUIDString];
+    RTCMediaStream *mediaStream = [self.peerConnectionFactory mediaStreamWithStreamId:mediaStreamId];
+    NSMutableArray *tracks = [NSMutableArray array];
+    NSMutableArray *tmp = [NSMutableArray array];
+    if (audioTrack)
+        [tmp addObject:audioTrack];
+    if (videoTrack)
+        [tmp addObject:videoTrack];
+
+    for (RTCMediaStreamTrack *track in tmp) {
+        if ([track.kind isEqualToString:@"audio"]) {
+            [mediaStream addAudioTrack:(RTCAudioTrack *)track];
+        } else if ([track.kind isEqualToString:@"video"]) {
+            [mediaStream addVideoTrack:(RTCVideoTrack *)track];
+        }
+
+        NSString *trackId = track.trackId;
+
+        self.localTracks[trackId] = track;
+
+        
+        NSDictionary *settings = @{};
+        if ([track.kind isEqualToString:@"video"]) {
+            RTCVideoTrack *videoTrack = (RTCVideoTrack *)track;
+            if ([videoTrack.captureController isKindOfClass:[CaptureController class]]) {
+                settings = [videoTrack.captureController getSettings];
+            }
+        } else if ([track.kind isEqualToString:@"audio"]) {
+            settings = @{
+                @"deviceId": @"audio",
+                @"groupId": @"",
+            };
+        }
+
+        [tracks addObject:@{
+            @"enabled" : @(track.isEnabled),
+            @"id" : trackId,
+            @"kind" : track.kind,
+            @"readyState" : @"live",
+            @"remote" : @(NO),
+            @"settings" : settings
+        }];
+    }
+
+    self.localStreams[mediaStreamId] = mediaStream;
+    // resolve(@{@"streamId" : mediaStreamId, @"tracks" : tracks});
+    resolve(@[ mediaStreamId, tracks ]);
+#endif
+}
+
+RCT_EXPORT_METHOD(pushFrame
+                  : (nonnull NSString *) streamId
+                  : CVPixelBufferRef frame
+                  : (RCTPromiseResolveBlock)resolve rejecter
+                  : (RCTPromiseRejectBlock)reject) {
+#if TARGET_OS_TV
+    return; 
+#else
+    RTCMediaStream *stream = self.localStreams[streamId];
+    if (stream) {
+        for (RTCVideoTrack *track in stream.videoTracks) {
+            if ([track.captureController isKindOfClass:[ScreenCaptureController class]]) {
+                ScreenCaptureController *scc = (ScreenCaptureController *)track.captureController;
+                [scc consumeFrame:frame];
+                int size = CVPixelBufferGetDataSize(frame);
+                resolve(@(size));
+                return;
+            }
+        }
+    }
+    reject(@"E_INVALID", @"Could not get track", nil);
+#endif
+}
+
 
 RCT_EXPORT_METHOD(getDisplayMedia : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseRejectBlock)reject) {
 #if TARGET_OS_TV
@@ -232,6 +368,7 @@ RCT_EXPORT_METHOD(getUserMedia
         NSString *trackId = track.trackId;
 
         self.localTracks[trackId] = track;
+
 
         NSDictionary *settings = @{};
         if ([track.kind isEqualToString:@"video"]) {
