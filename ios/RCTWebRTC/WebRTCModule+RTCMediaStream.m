@@ -259,9 +259,9 @@ RCT_EXPORT_METHOD(getInputMedia
     resolve(@[ mediaStreamId, tracks ]);
 }
 
-RCT_EXPORT_METHOD(pushFrame
+RCT_EXPORT_METHOD(pushNativeFrame
+                  : CVPixelBufferRef* frame
                   : (nonnull NSString *) streamId
-                  : CVPixelBufferRef frame
                   : (RCTPromiseResolveBlock)resolve rejecter
                   : (RCTPromiseRejectBlock)reject) {
     RTCMediaStream *stream = self.localStreams[streamId];
@@ -269,8 +269,8 @@ RCT_EXPORT_METHOD(pushFrame
         for (RTCVideoTrack *track in stream.videoTracks) {
             if ([track.captureController isKindOfClass:[FrameCaptureController class]]) {
                 FrameCaptureController *fcc = (FrameCaptureController *)track.captureController;
-                int size = CVPixelBufferGetDataSize(frame);
-                [fcc consumeFrame:frame];
+                int size = CVPixelBufferGetDataSize(*frame);
+                [fcc consumeFrame:*frame];
                 resolve(@(size));
                 return;
             }
@@ -278,7 +278,6 @@ RCT_EXPORT_METHOD(pushFrame
     }
     reject(@"E_INVALID", @"Could not get track", nil);
 }
-
 
 RCT_EXPORT_METHOD(getDisplayMedia : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseRejectBlock)reject) {
 #if TARGET_OS_TV

@@ -1,6 +1,6 @@
 
 import { NativeModules } from 'react-native';
-import { MediaTrackConstraints } from './Constraints';
+import { Constraints, MediaTrackConstraints } from './Constraints';
 import MediaStream from './MediaStream';
 import MediaStreamError from './MediaStreamError';
 import permissions from './Permissions';
@@ -8,13 +8,9 @@ import * as RTCUtil from './RTCUtil';
 
 const { WebRTCModule } = NativeModules;
 
-export interface Constraints {
-    audio?: boolean | MediaTrackConstraints;
-    video?: boolean | MediaTrackConstraints;
-}
-
-export type PushFrame = (frame: any) => Promise<number>;
-export default function getInputMedia(constraints: Constraints = {}): Promise<{stream: MediaStream, pushFrame: PushFrame}> {
+export type NativeBuffer = { pointer: bigint };
+export type FrameConsumer = (frame: NativeBuffer | ArrayBuffer) => Promise<number>;
+export default function getInputMedia(constraints: Constraints = {}): Promise<{stream: MediaStream, pushFrame: FrameConsumer}> {
     // According to
     // https://www.w3.org/TR/mediacapture-streams/#dom-mediadevices-getusermedia,
     // the constraints argument is a dictionary of type MediaStreamConstraints.
@@ -58,7 +54,9 @@ export default function getInputMedia(constraints: Constraints = {}): Promise<{s
                     tracks
                 };
 
-                const pushFrame = (frame: any, _id?: number): Promise<number> => WebRTCModule.pushFrame(_id ?? id, frame);
+                const pushFrame: FrameConsumer = (frame): Promise<number> => {
+                   return pushFrameToStream(frame, id);
+                };
                 const stream = new MediaStream(info);
                 resolve({stream, pushFrame});
             };
@@ -82,4 +80,14 @@ export default function getInputMedia(constraints: Constraints = {}): Promise<{s
             WebRTCModule.getInputMedia(constraints, success, failure);
         });
     });
+}
+
+export function pushFrameToStream(frame: NativeBuffer | ArrayBuffer, streamId: string): Promise<number> {
+    if (frame instanceof ArrayBuffer) {
+        return Promise.reject(new TypeError('ArrayBuffer is not supported yet'));
+    } else if (typeof frame === 'object' && frame['pointer']) {
+        return WebRTCModule.pushNativeFrame(streamId, frame.pointer);
+    } else {
+        return Promise.reject(new TypeError('frame is not a NativeBuffer(CVPixelBufferRef ptr) or ArrayBuffer'));
+    }
 }

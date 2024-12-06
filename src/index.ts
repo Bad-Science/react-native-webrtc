@@ -25,6 +25,7 @@ import RTCRtpTransceiver from './RTCRtpTransceiver';
 import RTCSessionDescription from './RTCSessionDescription';
 import RTCView from './RTCView';
 import ScreenCapturePickerView from './ScreenCapturePickerView';
+import { type NativeBuffer, type FrameConsumer, pushFrameToStream } from './getInputMedia';
 
 Logger.enable(`${Logger.ROOT_PREFIX}:*`);
 
@@ -45,6 +46,9 @@ export {
     MediaStream,
     MediaStreamTrack,
     type MediaTrackSettings,
+    type FrameConsumer,
+    type NativeBuffer,
+    pushFrameToStream,
     mediaDevices,
     permissions,
     registerGlobals
@@ -64,6 +68,8 @@ function registerGlobals(): void {
 
     global.navigator.mediaDevices.getUserMedia = mediaDevices.getUserMedia.bind(mediaDevices);
     global.navigator.mediaDevices.getDisplayMedia = mediaDevices.getDisplayMedia.bind(mediaDevices);
+    global.navigator.mediaDevices.getInputMedia = mediaDevices.getInputMedia.bind(mediaDevices);
+    global.navigator.mediaDevices.pushFrameToStream = mediaDevices.pushFrameToStream.bind(mediaDevices);
     global.navigator.mediaDevices.enumerateDevices = mediaDevices.enumerateDevices.bind(mediaDevices);
 
     global.RTCIceCandidate = RTCIceCandidate;

@@ -19,3 +19,8 @@ type ConstrainString = string | {
     exact?: string,
     ideal?: string,
 }
+
+export interface Constraints {
+    audio?: boolean | MediaTrackConstraints;
+    video?: boolean | MediaTrackConstraints;
+}

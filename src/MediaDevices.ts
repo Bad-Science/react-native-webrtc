@@ -2,8 +2,9 @@ import { EventTarget, Event, defineEventAttribute } from 'event-target-shim/inde
 import { NativeModules } from 'react-native';
 
 import getDisplayMedia from './getDisplayMedia';
-import getUserMedia, { Constraints } from './getUserMedia';
-import getInputMedia, {PushFrame, Constraints as InputConstraints } from './getInputMedia';
+import getUserMedia from './getUserMedia';
+import getInputMedia, { type NativeBuffer, pushFrameToStream } from './getInputMedia';
+import { Constraints } from './Constraints';
 
 const { WebRTCModule } = NativeModules;
 
@@ -42,8 +43,12 @@ class MediaDevices extends EventTarget<MediaDevicesEventMap> {
         return getUserMedia(constraints);
     }
 
-    getInputMedia(constraints: InputConstraints) {
+    getInputMedia(constraints: Constraints) {
         return getInputMedia(constraints);
+    }
+
+    pushFrameToStream(frame: NativeBuffer | ArrayBuffer, streamId: string) {
+        return pushFrameToStream(frame, streamId);
     }
 }
 
@@ -56,4 +61,3 @@ defineEventAttribute(proto, 'devicechange');
 
 
 export default new MediaDevices();
-export type { PushFrame, InputConstraints };
