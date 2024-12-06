@@ -23,32 +23,23 @@ export default function getInputMedia(constraints: Constraints = {}): Promise<{s
     }
 
     if (!constraints.audio && !constraints.video) {
-        return Promise.reject(new TypeError('audio and/or video is required'));
+        return Promise.reject(new TypeError('audio or video is required'));
     }
 
     // Normalize constraints.
     constraints = RTCUtil.normalizeConstraints(constraints);
 
     // Request required permissions
-    const reqPermissions: Promise<boolean>[] = [];
-
-    if (constraints.audio) {
-        reqPermissions.push(permissions.request({ name: 'microphone' }));
-    }
+    // Because the video is coming from an external source, we don't check camera permissions
+    const hasNeededPermissions: Promise<boolean> = constraints.audio
+        ? permissions.request({ name: 'microphone' })
+        : Promise.resolve(true);
 
     return new Promise((resolve, reject) => {
-        Promise.all(reqPermissions).then(results => {
-            // Check permission results 
-            for (const result of results) {
-                if (!result) {
-                    const error = {
-                        message: 'Permission denied.',
-                        name: 'SecurityError'
-                    };
-    
-                    reject(new MediaStreamError(error));
-                    return;
-                }
+        hasNeededPermissions.then(hasPermission => {
+            if (!hasPermission) {
+                reject(new MediaStreamError({message: 'Permission Denied', name: 'SecurityError'}));
+                return;
             }
 
             const success = (id, tracks) => {
