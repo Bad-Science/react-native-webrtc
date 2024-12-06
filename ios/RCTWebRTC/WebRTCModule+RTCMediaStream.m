@@ -14,6 +14,8 @@
 #import "ScreenCapturer.h"
 #import "TrackCapturerEventsEmitter.h"
 #import "VideoCaptureController.h"
+#import "FrameCapturer.h"
+#import "FrameCaptureController.h"
 
 @implementation WebRTCModule (RTCMediaStream)
 
@@ -152,7 +154,7 @@
     return videoTrack;
 }
 
-- (RTCVideoTrack *)createExternalStreamVideoTrack  {
+- (RTCVideoTrack *)createFrameCaptureVideoTrack  {
 #if TARGET_OS_OSX || TARGET_OS_TV
     return nil;
 #endif
@@ -163,17 +165,17 @@
     NSString *trackUUID = [[NSUUID UUID] UUIDString];
     RTCVideoTrack *videoTrack = [self.peerConnectionFactory videoTrackWithSource:videoSource trackId:trackUUID];
     
-    ScreenCapturer *screenCapturer = [[ScreenCapturer alloc] initWithDelegate:videoSource]; // constraints go here
-    ScreenCaptureController *screenCaptureController =
-        [[ScreenCaptureController alloc] initWithCapturer:screenCapturer];
+    FrameCapturer *frameCapturer = [[ScreenCapturer alloc] initWithDelegate:videoSource]; // constraints go here
+    FrameCaptureController *frameCaptureController =
+    [[FrameCaptureController alloc] initWithCapturer:frameCapturer];
         // We want to create a new constructor, `initWithBufferStream`, that has the correct interface and can be written to
         // in js-land with any native CVPixelBufferRef. Or, better yet, a js buffer. whatever is easier to get from skia.
         // Then we can expose an RCT method that takes a buffer and writes it to the stream!
 
     TrackCapturerEventsEmitter *emitter = [[TrackCapturerEventsEmitter alloc] initWith:trackUUID webRTCModule:self];
     screenCaptureController.eventsDelegate = emitter;
-    videoTrack.captureController = screenCaptureController;
-    [screenCaptureController startCapture];
+    videoTrack.captureController = frameCaptureController;
+    [frameCaptureController startCapture];
 
     return videoTrack;
 }
@@ -183,9 +185,11 @@ RCT_EXPORT_METHOD(getInputMedia
                   : (RCTResponseSenderBlock)resolve rejector
                   : (RCTResponseSenderBlock)reject) {
 #if TARGET_OS_TV
-    reject(@"unsupported_platform", @"tvOS is not supported", nil);
-    return;
-#else
+    if (constrains[@"audio"]) {
+        reject(@"unsupported_platform", @"tvOS is not supported", nil);
+        return;
+    }
+#endif
     RTCAudioTrack *audioTrack = nil;
     RTCVideoTrack *videoTrack = nil; 
 
@@ -194,7 +198,7 @@ RCT_EXPORT_METHOD(getInputMedia
     }
 
     if (constrains[@"video"]) {
-        videoTrack = [self createExternalStreamVideoTrack];
+        videoTrack = [self createFrameCaptureVideoTrack];
         if (videoTrack == nil) {
             reject(@"DOMException", @"AbortError", "failed to create video track");
             return;
@@ -256,7 +260,6 @@ RCT_EXPORT_METHOD(getInputMedia
     self.localStreams[mediaStreamId] = mediaStream;
     // resolve(@{@"streamId" : mediaStreamId, @"tracks" : tracks});
     resolve(@[ mediaStreamId, tracks ]);
-#endif
 }
 
 RCT_EXPORT_METHOD(pushFrame
@@ -264,23 +267,19 @@ RCT_EXPORT_METHOD(pushFrame
                   : CVPixelBufferRef frame
                   : (RCTPromiseResolveBlock)resolve rejecter
                   : (RCTPromiseRejectBlock)reject) {
-#if TARGET_OS_TV
-    return; 
-#else
     RTCMediaStream *stream = self.localStreams[streamId];
     if (stream) {
         for (RTCVideoTrack *track in stream.videoTracks) {
-            if ([track.captureController isKindOfClass:[ScreenCaptureController class]]) {
-                ScreenCaptureController *scc = (ScreenCaptureController *)track.captureController;
-                [scc consumeFrame:frame];
+            if ([track.captureController isKindOfClass:[FrameCaptureController class]]) {
+                FrameCaptureController *fcc = (FrameCaptureController *)track.captureController;
                 int size = CVPixelBufferGetDataSize(frame);
+                [fcc consumeFrame:frame];
                 resolve(@(size));
                 return;
             }
         }
     }
     reject(@"E_INVALID", @"Could not get track", nil);
-#endif
 }
 
 
