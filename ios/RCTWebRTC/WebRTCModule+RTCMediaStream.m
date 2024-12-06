@@ -177,107 +177,107 @@
     return videoTrack;
 }
 
-RCT_EXPORT_METHOD(getInputMedia 
-                  : (NSDictionary *)constraints resolver
-                  : (RCTResponseSenderBlock)resolve rejector
-                  : (RCTResponseSenderBlock)reject) {
-#if TARGET_OS_TV
-    if (constrains[@"audio"]) {
-        reject(@"unsupported_platform", @"tvOS is not supported", nil);
-        return;
-    }
-#endif
-    RTCAudioTrack *audioTrack = nil;
-    RTCVideoTrack *videoTrack = nil; 
+// RCT_EXPORT_METHOD(getInputMedia 
+//                   : (NSDictionary *)constraints resolver
+//                   : (RCTResponseSenderBlock)resolve rejector
+//                   : (RCTResponseSenderBlock)reject) {
+// #if TARGET_OS_TV
+//     if (constrains[@"audio"]) {
+//         reject(@"unsupported_platform", @"tvOS is not supported", nil);
+//         return;
+//     }
+// #endif
+//     RTCAudioTrack *audioTrack = nil;
+//     RTCVideoTrack *videoTrack = nil; 
 
-    if (constraints[@"audio"]) {
-        audioTrack = [self createAudioTrack:constraints];
-    }
+//     if (constraints[@"audio"]) {
+//         audioTrack = [self createAudioTrack:constraints];
+//     }
 
-    if (constrains[@"video"]) {
-        videoTrack = [self createFrameCaptureVideoTrack];
-        if (videoTrack == nil) {
-            reject(@"DOMException", @"AbortError", "failed to create video track");
-            return;
-        }
-    }
+//     if (constrains[@"video"]) {
+//         videoTrack = [self createFrameCaptureVideoTrack];
+//         if (videoTrack == nil) {
+//             reject(@"DOMException", @"AbortError", "failed to create video track");
+//             return;
+//         }
+//     }
 
-    if (audioTrack == nil && videoTrack == nil) {
-        // Fail with DOMException with name AbortError as per:
-        // https://www.w3.org/TR/mediacapture-streams/#dom-mediadevices-getusermedia
-        // errorCallback(@[ @"DOMException", @"AbortError" ]);
-        reject(@"DOMException", @"AbortError", "failed to create video track");
-        return;
-    }
+//     if (audioTrack == nil && videoTrack == nil) {
+//         // Fail with DOMException with name AbortError as per:
+//         // https://www.w3.org/TR/mediacapture-streams/#dom-mediadevices-getusermedia
+//         // errorCallback(@[ @"DOMException", @"AbortError" ]);
+//         reject(@"DOMException", @"AbortError", "failed to create video track");
+//         return;
+//     }
 
-    NSString *mediaStreamId = [[NSUUID UUID] UUIDString];
-    RTCMediaStream *mediaStream = [self.peerConnectionFactory mediaStreamWithStreamId:mediaStreamId];
-    NSMutableArray *tracks = [NSMutableArray array];
-    NSMutableArray *tmp = [NSMutableArray array];
-    if (audioTrack)
-        [tmp addObject:audioTrack];
-    if (videoTrack)
-        [tmp addObject:videoTrack];
+//     NSString *mediaStreamId = [[NSUUID UUID] UUIDString];
+//     RTCMediaStream *mediaStream = [self.peerConnectionFactory mediaStreamWithStreamId:mediaStreamId];
+//     NSMutableArray *tracks = [NSMutableArray array];
+//     NSMutableArray *tmp = [NSMutableArray array];
+//     if (audioTrack)
+//         [tmp addObject:audioTrack];
+//     if (videoTrack)
+//         [tmp addObject:videoTrack];
 
-    for (RTCMediaStreamTrack *track in tmp) {
-        if ([track.kind isEqualToString:@"audio"]) {
-            [mediaStream addAudioTrack:(RTCAudioTrack *)track];
-        } else if ([track.kind isEqualToString:@"video"]) {
-            [mediaStream addVideoTrack:(RTCVideoTrack *)track];
-        }
+//     for (RTCMediaStreamTrack *track in tmp) {
+//         if ([track.kind isEqualToString:@"audio"]) {
+//             [mediaStream addAudioTrack:(RTCAudioTrack *)track];
+//         } else if ([track.kind isEqualToString:@"video"]) {
+//             [mediaStream addVideoTrack:(RTCVideoTrack *)track];
+//         }
 
-        NSString *trackId = track.trackId;
+//         NSString *trackId = track.trackId;
 
-        self.localTracks[trackId] = track;
+//         self.localTracks[trackId] = track;
 
         
-        NSDictionary *settings = @{};
-        if ([track.kind isEqualToString:@"video"]) {
-            RTCVideoTrack *videoTrack = (RTCVideoTrack *)track;
-            if ([videoTrack.captureController isKindOfClass:[CaptureController class]]) {
-                settings = [videoTrack.captureController getSettings];
-            }
-        } else if ([track.kind isEqualToString:@"audio"]) {
-            settings = @{
-                @"deviceId": @"audio",
-                @"groupId": @"",
-            };
-        }
+//         NSDictionary *settings = @{};
+//         if ([track.kind isEqualToString:@"video"]) {
+//             RTCVideoTrack *videoTrack = (RTCVideoTrack *)track;
+//             if ([videoTrack.captureController isKindOfClass:[CaptureController class]]) {
+//                 settings = [videoTrack.captureController getSettings];
+//             }
+//         } else if ([track.kind isEqualToString:@"audio"]) {
+//             settings = @{
+//                 @"deviceId": @"audio",
+//                 @"groupId": @"",
+//             };
+//         }
 
-        [tracks addObject:@{
-            @"enabled" : @(track.isEnabled),
-            @"id" : trackId,
-            @"kind" : track.kind,
-            @"readyState" : @"live",
-            @"remote" : @(NO),
-            @"settings" : settings
-        }];
-    }
+//         [tracks addObject:@{
+//             @"enabled" : @(track.isEnabled),
+//             @"id" : trackId,
+//             @"kind" : track.kind,
+//             @"readyState" : @"live",
+//             @"remote" : @(NO),
+//             @"settings" : settings
+//         }];
+//     }
 
-    self.localStreams[mediaStreamId] = mediaStream;
-    // resolve(@{@"streamId" : mediaStreamId, @"tracks" : tracks});
-    resolve(@[ mediaStreamId, tracks ]);
-}
+//     self.localStreams[mediaStreamId] = mediaStream;
+//     // resolve(@{@"streamId" : mediaStreamId, @"tracks" : tracks});
+//     resolve(@[ mediaStreamId, tracks ]);
+// }
 
-RCT_EXPORT_METHOD(pushNativeFrame
-                  : CVPixelBufferRef* frame
-                  : (nonnull NSString *) streamId
-                  : (RCTPromiseResolveBlock)resolve rejecter
-                  : (RCTPromiseRejectBlock)reject) {
-    RTCMediaStream *stream = self.localStreams[streamId];
-    if (stream) {
-        for (RTCVideoTrack *track in stream.videoTracks) {
-            if ([track.captureController isKindOfClass:[FrameCaptureController class]]) {
-                FrameCaptureController *fcc = (FrameCaptureController *)track.captureController;
-                int size = CVPixelBufferGetDataSize(*frame);
-                [fcc consumeFrame:*frame];
-                resolve(@(size));
-                return;
-            }
-        }
-    }
-    reject(@"E_INVALID", @"Could not get track", nil);
-}
+// RCT_EXPORT_METHOD(pushNativeFrame
+//                   : (CVPixelBufferRef*) frame
+//                   : (nonnull NSString *) streamId
+//                   : (RCTPromiseResolveBlock) resolve rejecter
+//                   : (RCTPromiseRejectBlock) reject) {
+//     RTCMediaStream *stream = self.localStreams[streamId];
+//     if (stream) {
+//         for (RTCVideoTrack *track in stream.videoTracks) {
+//             if ([track.captureController isKindOfClass:[FrameCaptureController class]]) {
+//                 FrameCaptureController *fcc = (FrameCaptureController *)track.captureController;
+//                 int size = CVPixelBufferGetDataSize(*frame);
+//                 [fcc consumeFrame:*frame];
+//                 resolve(@(size));
+//                 return;
+//             }
+//         }
+//     }
+//     reject(@"E_INVALID", @"Could not get track", nil);
+// }
 
 RCT_EXPORT_METHOD(getDisplayMedia : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseRejectBlock)reject) {
 #if TARGET_OS_TV
