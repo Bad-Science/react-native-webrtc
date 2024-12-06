@@ -142,9 +142,6 @@
     ScreenCapturer *screenCapturer = [[ScreenCapturer alloc] initWithDelegate:videoSource];
     ScreenCaptureController *screenCaptureController =
         [[ScreenCaptureController alloc] initWithCapturer:screenCapturer];
-        // We want to create a new constructor, `initWithBufferStream`, that has the correct interface and can be written to
-        // in js-land with any native CVPixelBufferRef. Or, better yet, a js buffer. whatever is easier to get from skia.
-        // Then we can expose an RCT method that takes a buffer and writes it to the stream!
 
     TrackCapturerEventsEmitter *emitter = [[TrackCapturerEventsEmitter alloc] initWith:trackUUID webRTCModule:self];
     screenCaptureController.eventsDelegate = emitter;
@@ -367,7 +364,6 @@ RCT_EXPORT_METHOD(getUserMedia
         NSString *trackId = track.trackId;
 
         self.localTracks[trackId] = track;
-
 
         NSDictionary *settings = @{};
         if ([track.kind isEqualToString:@"video"]) {

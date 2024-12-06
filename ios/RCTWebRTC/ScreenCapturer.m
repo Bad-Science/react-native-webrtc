@@ -161,10 +161,6 @@ const NSUInteger kMaxReadLength = 10 * 1024;
     [self.connection openWithStreamDelegate:self];
 }
 
-- (void)consumeFrame:(CVPixelBufferRef)frame {
-    [self didCaptureVideoFrame:frame withOrientation:kCGImagePropertyOrientationUp];
-}
-
 - (void)stopCapture {
     self.connection = nil;
 }
@@ -203,8 +199,6 @@ const NSUInteger kMaxReadLength = 10 * 1024;
     }
 }
 
-// THE MAGIC SPOT. complete frames from the socket are sent here from readBytesFromStream
-// Note: we might actually want to structure thus more like the media devide capturer, gutted to audio and frame capture
 - (void)didCaptureVideoFrame:(CVPixelBufferRef)pixelBuffer withOrientation:(CGImagePropertyOrientation)orientation {
     int64_t currentTime = mach_absolute_time();
     int64_t currentTimeStampNs = currentTime * _timebaseInfo.numer / _timebaseInfo.denom;
@@ -236,14 +230,11 @@ const NSUInteger kMaxReadLength = 10 * 1024;
                                                              rotation:rotation
                                                           timeStampNs:frameTimeStampNs];
 
-    // this seems like we are emitting the videoFrame back to the source? the delegate is the source stream soooooooooox
     [self.delegate capturer:self didCaptureVideoFrame:videoFrame];
 }
 
 @end
 
-// The nicer version of this impmenents the thing that emits events to the stream delegate (a video source substitute)
-// Oh, actually, that might make sense, it's just a bit roundabout. perhaps this calls RTCVideoStream onFrame
 @implementation ScreenCapturer (NSStreamDelegate)
 
 - (void)stream:(NSStream *)aStream handleEvent:(NSStreamEvent)eventCode {

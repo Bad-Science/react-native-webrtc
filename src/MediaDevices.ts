@@ -38,7 +38,7 @@ class MediaDevices extends EventTarget<MediaDevicesEventMap> {
      * @param {*} constraints
      * @returns {Promise}
      */
-    getUserMedia(constraints: Constraints ) {
+    getUserMedia(constraints: Constraints) {
         return getUserMedia(constraints);
     }
 

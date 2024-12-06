@@ -50,10 +50,6 @@ NSString *const kRTCAppGroupIdentifier = @"RTCAppGroupIdentifier";
     [self.capturer startCaptureWithConnection:connection];
 }
 
-- (void)consumeFrame:(CVPixelBufferRef)frame {
-    [self.capturer consumeFrame:frame];
-}
-
 - (void)stopCapture {
     [self.capturer stopCapture];
 }

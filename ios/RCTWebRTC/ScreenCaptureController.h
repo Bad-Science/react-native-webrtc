@@ -1,7 +1,6 @@
 #import <Foundation/Foundation.h>
 #import "CaptureController.h"
 #import "CapturerEventsDelegate.h"
-#import <CoreVideo/CoreVideo.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -13,7 +12,6 @@ extern NSString *const kRTCAppGroupIdentifier;
 @interface ScreenCaptureController : CaptureController
 
 - (instancetype)initWithCapturer:(nonnull ScreenCapturer *)capturer;
-- (void)consumeFrame:(CVPixelBufferRef)buffer;
 - (void)startCapture;
 - (void)stopCapture;
 
