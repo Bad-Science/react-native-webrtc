@@ -269,7 +269,7 @@ RCT_EXPORT_METHOD(pushNativeFrame
         for (RTCVideoTrack *track in stream.videoTracks) {
             if ([track.captureController isKindOfClass:[FrameCaptureController class]]) {
                 FrameCaptureController *fcc = (FrameCaptureController *)track.captureController;
-                int size = CVPixelBufferGetDataSize(*frame);
+                unsigned long size = CVPixelBufferGetDataSize(*frame);
                 [fcc consumeFrame:*frame];
                 resolve(@(size));
                 return;
