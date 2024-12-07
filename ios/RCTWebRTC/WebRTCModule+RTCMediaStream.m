@@ -206,7 +206,7 @@ RCT_EXPORT_METHOD(getInputMedia
         // Fail with DOMException with name AbortError as per:
         // https://www.w3.org/TR/mediacapture-streams/#dom-mediadevices-getusermedia
         // errorCallback(@[ @"DOMException", @"AbortError" ]);
-        reject(@[@"DOMException", @"AbortError"]);
+        errorCallback(@[@"DOMException", @"AbortError"]);
         return;
     }
 
