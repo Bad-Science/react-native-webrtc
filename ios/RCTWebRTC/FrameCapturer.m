@@ -6,6 +6,8 @@
 #import <WebRTC/RTCCVPixelBuffer.h>
 #import <WebRTC/RTCVideoFrameBuffer.h>
 
+#import "FrameCapturer.h"
+
 @interface FrameCapturer ()
 
 @end
